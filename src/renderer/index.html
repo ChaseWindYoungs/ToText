@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Electron</title>
+    <!-- 通用CSP策略，支持多种文件类型和自定义协议 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: myapp:; media-src 'self' data: blob: myapp:; font-src 'self' data:; connect-src 'self'"
+    />
+  </head>
+
+  <body>
+    <div id="root" style="overflow: auto; height: 100vh;"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

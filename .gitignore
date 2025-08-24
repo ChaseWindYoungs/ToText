@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+out
+.DS_Store
+.eslintcache
+*.log*
+audio
+resources/ffmpeg/
+resources/whisper/

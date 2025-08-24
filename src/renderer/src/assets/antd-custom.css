@@ -1,0 +1,254 @@
+/* 导入安踏设计系统样式 */
+@import 'antd/dist/reset.css';
+
+/* 自定义主题变量 */
+:root {
+  --primary-color: #1890ff;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #f5222d;
+  --font-size-base: 14px;
+  --border-radius-base: 6px;
+}
+
+/* 应用布局样式 */
+.app-layout {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.app-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0 24px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-logo {
+  font-size: 32px;
+  color: var(--primary-color);
+}
+
+.app-title {
+  margin: 0 !important;
+  color: #1f1f1f;
+  font-weight: 600;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+.header-icon {
+  color: var(--primary-color);
+}
+
+.app-content {
+  padding: 24px;
+  background: transparent;
+}
+
+.content-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.app-footer {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+  padding: 16px 24px;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.footer-content p {
+  margin: 4px 0;
+  color: #666;
+  font-size: 12px;
+}
+
+/* FFmpeg Demo 组件样式 */
+.ffmpeg-demo {
+  padding: 0;
+}
+
+.main-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.section-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.section-card:last-child {
+  margin-bottom: 0;
+}
+
+.audio-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.preview-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 16px;
+  }
+  
+  .app-content {
+    padding: 16px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .logo-section {
+    justify-content: center;
+  }
+  
+  .header-info {
+    justify-content: center;
+  }
+}
+
+/* 动画效果 */
+.main-card,
+.audio-card,
+.info-card,
+.preview-card {
+  transition: all 0.3s ease;
+}
+
+.main-card:hover,
+.audio-card:hover,
+.info-card:hover,
+.preview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* 按钮样式优化 */
+.ant-btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+/* 输入框样式优化 */
+.ant-input {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.ant-input:focus {
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 卡片标题样式 */
+.ant-card-head-title {
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+/* 进度条样式 */
+.ant-progress-bg {
+  border-radius: 4px;
+}
+
+/* 标签样式 */
+.ant-tag {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* 警告框样式 */
+.ant-alert {
+  border-radius: 8px;
+  border: none;
+}
+
+/* 加载动画 */
+.ant-spin-dot-item {
+  background-color: var(--primary-color);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(24, 144, 255, 0.5);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(24, 144, 255, 0.7);
+}
