@@ -19,7 +19,6 @@ class IpcEvent {
   }
 
   event() {
-    // 原有的IPC事件
     this.handleOpenFile()
     this.handlePing()
 
@@ -56,7 +55,41 @@ class IpcEvent {
     })
   }
 
-  // FFmpeg相关IPC处理
+  
+  /**
+   * FFmpeg相关IPC处理
+   *
+   * @event ffmpeg:convert-video
+   * @param {string} inputPath Input file path.
+   * @param {string} outputPath Output file path.
+   * @param {Object} options Options for converting.
+   * @returns {Promise<Object>} { success: boolean, message: string }
+   *
+   * @event ffmpeg:get-video-info
+   * @param {string} inputPath Input file path.
+   * @returns {Promise<Object>} { success: boolean, info: Object }
+   *
+   * @event ffmpeg:extract-thumbnail
+   * @param {string} inputPath Input file path.
+   * @param {string} outputPath Output file path.
+   * @param {string} time Timestamp of the thumbnail to extract (HH:MM:SS).
+   * @returns {Promise<Object>} { success: boolean, message: string }
+   *
+   * @event ffmpeg:trim-video
+   * @param {string} inputPath Input file path.
+   * @param {string} outputPath Output file path.
+   * @param {string} startTime Start time of the video to trim (HH:MM:SS).
+   * @param {string} duration Duration of the video to trim (HH:MM:SS).
+   * @returns {Promise<Object>} { success: boolean, message: string }
+   *
+   * @event ffmpeg:extract-audio
+   * @param {string} inputPath Input file path.
+   * @param {string} [outputPath] Output file path.
+   * @returns {Promise<Object>} { success: boolean, audioPath: string, message: string }
+   *
+   * @event ffmpeg:is-ready
+   * @returns {boolean} Whether FFmpeg is ready.
+   */
   handleFFmpegEvents() {
     // 视频转换
     ipcMain.handle(
@@ -136,9 +169,20 @@ class IpcEvent {
     })
   }
 
-  // 文件系统相关IPC处理
+  
+  /**
+   * 处理文件系统相关IPC事件
+   * @method
+   * @memberof IpcEvent
+   * @private
+   * @param {Electron.IpcMainEvent} event - IPC事件
+   * @property {string} event.file:select-file - 选择文件
+   * @property {Electron.OpenDialogOptions} event.file:select-file.options - 选择文件的选项
+   * @property {string} event.file:select-directory - 选择目录
+   * @property {string} event.file:get-info - 获取文件信息
+   * @property {string} event.file:read-file - 读取文件
+   */
   handleFileSystemEvents() {
-    // 选择文件
     ipcMain.handle('file:select-file', async (_event, options) => {
       try {
         const result = await dialog.showOpenDialog({
@@ -159,8 +203,6 @@ class IpcEvent {
         return null
       }
     })
-
-    // 选择目录
     ipcMain.handle('file:select-directory', async () => {
       try {
         const result = await dialog.showOpenDialog({
@@ -175,8 +217,6 @@ class IpcEvent {
         return null
       }
     })
-
-    // 获取文件信息
     ipcMain.handle('file:get-info', async (_event, filePath) => {
       try {
         const stats = fs.statSync(filePath)
@@ -190,8 +230,6 @@ class IpcEvent {
         return null
       }
     })
-
-    // 读取文件内容
     ipcMain.handle('file:read-file', async (_event, filePath) => {
       try {
         const buffer = fs.readFileSync(filePath)
@@ -204,7 +242,33 @@ class IpcEvent {
     })
   }
 
+  /**
+   * 处理Whisper IPC事件。
+   *
+   * @event whisper:start
+   * @param {Object} opts 启动Whisper服务器的选项。
+   * @param {string} [opts.model] Model file name (without extension).
+   * @param {number} [opts.threads] Number of threads to use.
+   * @param {number} [opts.port] Port number to use.
+   * @returns {Promise<Object>} { success: boolean, ready: boolean }
+   *
+   * @event whisper:stop
+   * @returns {Promise<Object>} { success: boolean }
+   *
+   * @event whisper:is-ready
+   * @returns {boolean} Whether the Whisper server is ready.
+   *
+   * @event whisper:transcribe
+   * @param {string} inputPath Input file path.
+   * @param {Object} [options] Options for transcribing.
+   * @returns {Promise<Object>} { success: boolean, ...transcriptionResult }
+   *
+   * @event whisper:restart
+   * @param {string} [modelFile] Model file name (without extension).
+   * @returns {Promise<Object>} { success: boolean, ready: boolean }
+   */
   handleWhisperEvents() {
+
     ipcMain.handle(
       'whisper:start',
       async (_e, opts?: { model?: string; threads?: number; port?: number }) => {
@@ -245,6 +309,25 @@ class IpcEvent {
     })
   }
 
+
+  /**
+   * Handle model-related IPC events.
+   *
+   * @event models:list
+   * @returns {Promise<string[]>} List of model files.
+   *
+   * @event models:dir
+   * @returns {Promise<string>} Directory path for model files.
+   *
+   * @event models:remove
+   * @param {string} name Model file name (without extension).
+   * @returns {Promise<Object>} { success: boolean }
+   *
+   * @event models:download
+   * @param {string} url URL of the model file to download.
+   * @param {string} [fileName] Optional file name to use for the downloaded file.
+   * @returns {Promise<Object>} { success: boolean, ...downloadResult }
+   */
   handleModelEvents() {
     ipcMain.handle('models:list', () => modelsManager.list())
     ipcMain.handle('models:dir', () => modelsManager.getDir())

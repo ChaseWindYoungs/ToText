@@ -12,7 +12,6 @@ const electronAPI = {
   readAudioFile: (filePath) => ipcRenderer.invoke('ffmpeg:read-audio-file', filePath)
 }
 
-// FFmpeg APIs for renderer
 const ffmpegAPI = {
   convertVideo: (inputPath, outputPath, options) =>
     ipcRenderer.invoke('ffmpeg:convert-video', inputPath, outputPath, options),
@@ -70,8 +69,6 @@ if (process.contextIsolated) {
   window.ffmpeg = ffmpegAPI
   // @ts-ignore (define in dts)
   window.fileSystem = fileSystemAPI
-  // @ts-ignore
   window.whisper = whisperAPI
-  // @ts-ignore
   window.models = modelsAPI
 }

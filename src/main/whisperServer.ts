@@ -16,18 +16,41 @@ type TranscribeOptions = {
   outputDir?: string
 }
 
+/**
+ * 返回Whisper资源的基本目录。
+ *
+ * 在开发过程中，这是项目根目录下的 "resources/whisper "目录。
+ * 在生产环境中，这是 app.asar 文件中的 "resources/whisper "目录。
+ *
+ * @returns {string} Whisper 资源的基本目录。
+ */
 function getResourcesBase() {
   return is.dev
     ? path.join(process.cwd(), 'resources', 'whisper')
     : path.join(process.resourcesPath, 'resources', 'whisper')
 }
 
+/**
+ * 返回存储用户 Whisper 模型的目录。
+ *
+ * 如果目录不存在，则将创建该目录。
+ *
+ * @returns {string} 存储用户 Whisper 模型的目录。
+ */
 function getUserModelsDir() {
   const dir = path.join(app.getPath('userData'), 'models')
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   return dir
 }
 
+/**
+ * 查找 Whisper 模型文件的路径。
+ * 首先在用户的模型目录中搜索模型文件，然后在资源目录中搜索。
+ * 如果找到该文件，将返回其路径。否则将返回空字符串。
+ *
+ * @param {string} modelFile 模型文件的名称。
+ * @returns {string} 模型文件的路径，如果未找到，则为空字符串。
+ */
 function findModelPath(modelFile: string) {
   const userModel = path.join(getUserModelsDir(), modelFile)
   if (fs.existsSync(userModel)) return userModel
@@ -36,6 +59,12 @@ function findModelPath(modelFile: string) {
   return ''
 }
 
+/**
+ * 查找 Whisper 服务器可执行文件的路径。
+ *
+ * @returns {string} Whisper 服务器可执行文件的路径。如果可执行文件
+ * 找不到，返回空字符串。
+ */
 function findServerBin(): string {
   const archDir = process.arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64'
   const base = path.join(getResourcesBase(), 'bin', archDir)
@@ -171,6 +200,18 @@ async function run(cmd: string, args: string[]): Promise<{ code: number; stdout:
   })
 }
 
+/**
+ * 获取默认输出目录：桌面/totext，并确保存在。
+ */
+function getDefaultOutputDir(): string {
+  const desktopDir = app.getPath('desktop')
+  const outDir = path.join(desktopDir, 'totext')
+  if (!fs.existsSync(outDir)) {
+    fs.mkdirSync(outDir, { recursive: true })
+  }
+  return outDir
+}
+
 class WhisperServerManager {
   private child: import('child_process').ChildProcess | null = null
   private port: number = 8089
@@ -285,6 +326,7 @@ class WhisperServerManager {
     const format = opt.format ?? 'txt'
     const language = opt.language ?? 'auto'
     const translate = !!opt.translate
+    const targetDir = opt.outputDir || getDefaultOutputDir()
 
     // server 优先
     if (this.ready && this.serverBin) {
@@ -305,7 +347,16 @@ class WhisperServerManager {
 
       // 期待返回 { ok: true, output: '/path/to/result.txt' } 或 { text: '...' }
       if (res?.output && fs.existsSync(res.output)) {
-        return { output: res.output }
+        // 若未显式指定 outputDir，则将文件复制到默认目录，并返回复制后的路径
+        const ext = path.extname(res.output) || `.${format}`
+        const targetPath = path.join(targetDir, `transcript_${Date.now()}${ext}`)
+        try {
+          fs.copyFileSync(res.output, targetPath)
+          return { output: targetPath }
+        } catch (e) {
+          // 复制失败则退回返回原路径
+          return { output: res.output }
+        }
       }
       const text =
         typeof res?.text === 'string'
@@ -314,8 +365,7 @@ class WhisperServerManager {
           ? res.result.text
           : null
       if (typeof text === 'string') {
-        const outDir = opt.outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'whisper-'))
-        const outPath = path.join(outDir, `transcript_${Date.now()}.${format}`)
+        const outPath = path.join(targetDir, `transcript_${Date.now()}.${format}`)
         fs.writeFileSync(outPath, text)
         return { output: outPath }
       }
@@ -332,8 +382,7 @@ class WhisperServerManager {
       throw new Error(`模型未找到: ${model}`)
     }
     const threads = opt.threads ?? Math.max(1, Math.min(8, os.cpus().length))
-    const outDir = opt.outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'whisper-'))
-    const prefix = path.join(outDir, `transcript_${Date.now()}`)
+    const prefix = path.join(targetDir, `transcript_${Date.now()}`)
 
     const outFlags = format === 'srt' ? ['-osrt'] : format === 'vtt' ? ['-ovtt'] : ['-otxt']
     const args = ['-m', modelPath, '-f', inputPath, '-l', language, '-t', String(threads), '-of', prefix, ...outFlags]
