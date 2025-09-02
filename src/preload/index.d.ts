@@ -27,6 +27,10 @@ declare global {
       transcribe: (inputPath: string, options?: { model?: string; language?: string; format?: 'txt' | 'srt' | 'vtt'; threads?: number; translate?: boolean; outputDir?: string }) => Promise<{ success: boolean; output?: string; error?: string }>
       restart: (modelFile?: string) => Promise<{ success: boolean; ready?: boolean; error?: string }>
     }
+    pipeline: {
+      startVideoToText: (inputPath: string, options?: { outputDir?: string; whisper?: { model?: string; language?: string; format?: 'txt' | 'srt' | 'vtt'; threads?: number; translate?: boolean } }) => Promise<{ success: boolean; audioPath?: string; output?: string; error?: string }>
+      onProgress: (cb: (payload: { phase: 'extract' | 'upload' | 'process' | 'transcribe' | 'done' | 'error'; percent?: number; message?: string }) => void) => () => void
+    }
     models: {
       list: () => Promise<{ name: string; size: number }[]>
       dir: () => Promise<string>

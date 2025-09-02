@@ -1,6 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { FileLoader, FileLoadResult } from '../utils/fileLoader'
-import FilePreview from './FilePreview'
+import React, { useState } from 'react'
 
 interface FFmpegDemoProps {}
 
@@ -11,7 +9,10 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
   const [message, setMessage] = useState<string>('')
   const [ffmpegReady, setFfmpegReady] = useState<boolean>(false)
   const [extractedAudioPath, setExtractedAudioPath] = useState<string>('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [pipelinePhase, setPipelinePhase] = useState<'extract' | 'transcribe' | 'done' | 'error' | ''>('')
+  const [pipelinePercent, setPipelinePercent] = useState<number>(0)
+  const [transcriptPath, setTranscriptPath] = useState<string>('')
+  // 移除未使用的引用
 
   // 检查FFmpeg是否就绪
   React.useEffect(() => {
@@ -163,6 +164,55 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     }
   }
 
+  const handleVideoToText = async () => {
+    if (!inputFilePath) {
+      setMessage('请先选择输入文件')
+      return
+    }
+
+    setIsProcessing(true)
+    setMessage('正在执行：提取音频并转写...')
+    setPipelinePhase('')
+    setPipelinePercent(0)
+    setTranscriptPath('')
+
+    // 订阅进度
+    const stop = window.pipeline.onProgress(({ phase, percent, message }) => {
+      if (phase === 'extract' || phase === 'transcribe') {
+        setPipelinePhase(phase)
+        if (typeof percent === 'number') setPipelinePercent(percent)
+      } else if (phase === 'done') {
+        setPipelinePhase('done')
+        setPipelinePercent(100)
+      } else if (phase === 'error') {
+        setPipelinePhase('error')
+        setMessage(message || '处理出错')
+      }
+    })
+
+    try {
+      const { success, audioPath, output, error } = await window.pipeline.startVideoToText(
+        inputFilePath,
+        {
+          // 不传也会默认写入桌面 totext
+          whisper: { format: 'srt', language: 'auto', translate: false }
+        }
+      )
+      if (success) {
+        setExtractedAudioPath(audioPath || '')
+        if (output) setTranscriptPath(output)
+        setMessage('完成！')
+      } else {
+        setMessage(`失败：${error}`)
+      }
+    } catch (e: any) {
+      setMessage(`出错：${e?.message || String(e)}`)
+    } finally {
+      stop()
+      setIsProcessing(false)
+    }
+  }
+
   return (
     <div
       className="ffmpeg-demo"
@@ -277,6 +327,21 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
           转写当前文件
         </button>
         <button
+          style={{
+            marginRight: '10px',
+            padding: '10px 20px',
+            backgroundColor: '#ff7f50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: isProcessing ? 'not-allowed' : 'pointer'
+          }}
+          disabled={!inputFilePath || isProcessing}
+          onClick={handleVideoToText}
+        >
+          {isProcessing ? '处理中...' : '一键转文字'}
+        </button>
+        <button
           onClick={handleConvert}
           disabled={!ffmpegReady || !inputFilePath || isProcessing}
           style={{
@@ -348,6 +413,35 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
           <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
             音频文件路径: {extractedAudioPath}
           </p>
+        </div>
+      )}
+
+      {/* 转写结果与进度 */}
+      {(pipelinePhase || isProcessing) && (
+        <div style={{ marginTop: '20px' }}>
+          <h3>转写进度:</h3>
+          <div style={{
+            width: '100%',
+            height: '10px',
+            background: '#eee',
+            borderRadius: '5px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${Math.max(0, Math.min(100, pipelinePercent))}%`,
+              height: '100%',
+              background: pipelinePhase === 'extract' ? '#6f42c1' : '#007bff',
+              transition: 'width 0.2s ease'
+            }} />
+          </div>
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#333' }}>
+            阶段：{pipelinePhase || '等待'}，进度：{Math.max(0, Math.min(100, pipelinePercent))}%
+          </div>
+          {transcriptPath && (
+            <div style={{ marginTop: '10px' }}>
+              <strong>字幕文件:</strong> {transcriptPath}
+            </div>
+          )}
         </div>
       )}
 

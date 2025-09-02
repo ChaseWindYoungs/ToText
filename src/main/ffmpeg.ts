@@ -406,12 +406,25 @@ export class FFmpegService {
     }
   }
 
-  async extractAudio(inputPath: string, outputPath?: string): Promise<string> {
+  async extractAudio(inputPath: string, outputPath?: string, options?: { onProgress?: (percent: number) => void }): Promise<string> {
     if (!this.isLoaded) {
       await this.load();
     }
 
     try {
+      // 预先获取视频总时长（秒），用于将 ffmpeg 的处理时间换算为百分比
+      let durationSeconds = 0;
+      try {
+        const info = await this.getVideoInfo(inputPath);
+        const durStr = info?.info?.format?.duration;
+        const dur = durStr ? parseFloat(durStr) : NaN;
+        if (!isNaN(dur) && isFinite(dur)) {
+          durationSeconds = Math.max(0, dur);
+        }
+      } catch (_) {
+        durationSeconds = 0;
+      }
+
       // 如果没有指定输出路径，使用默认路径
       if (!outputPath) {
         const appPath = process.env.NODE_ENV === 'development' ? process.cwd() : process.resourcesPath;
@@ -433,6 +446,19 @@ export class FFmpegService {
         .audioBitrate('128k')
         .videoCodec('copy') // 不处理视频，只提取音频
         .size('1x1'); // 最小尺寸，因为我们不需要视频
+
+      if (options?.onProgress) {
+        ffmpeg.on('progress', (processedSeconds: number) => {
+          if (durationSeconds > 0) {
+            const ratio = Math.min(1, Math.max(0, processedSeconds / durationSeconds));
+            const percent = Math.round(ratio * 100);
+            options.onProgress!(percent);
+          } else {
+            // 无法获取总时长时，降级为 0（由调用方选择是否显示不确定进度）
+            options.onProgress!(0);
+          }
+        });
+      }
 
       await ffmpeg.run();
       console.log(`Audio extracted successfully: ${outputPath}`);

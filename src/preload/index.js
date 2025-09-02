@@ -49,6 +49,17 @@ const modelsAPI = {
   download: (url, fileName) => ipcRenderer.invoke('models:download', url, fileName)
 }
 
+// 聚合“视频转文字”管线 API
+const pipelineAPI = {
+  startVideoToText: (inputPath, options) =>
+    ipcRenderer.invoke('pipeline:video-to-text', inputPath, options),
+  onProgress: (cb) => {
+    const listener = (_e, payload) => cb(payload)
+    ipcRenderer.on('pipeline:progress', listener)
+    return () => ipcRenderer.removeListener('pipeline:progress', listener)
+  }
+}
+
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
@@ -59,6 +70,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('fileSystem', fileSystemAPI)
     contextBridge.exposeInMainWorld('whisper', whisperAPI)
     contextBridge.exposeInMainWorld('models', modelsAPI)
+    contextBridge.exposeInMainWorld('pipeline', pipelineAPI)
   } catch (error) {
     console.error(error)
   }
@@ -71,4 +83,5 @@ if (process.contextIsolated) {
   window.fileSystem = fileSystemAPI
   window.whisper = whisperAPI
   window.models = modelsAPI
+  window.pipeline = pipelineAPI
 }

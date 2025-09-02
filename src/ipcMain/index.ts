@@ -30,6 +30,8 @@ class IpcEvent {
 
     // Whisper 本地服务与模型管理
     this.handleWhisperEvents()
+    // 聚合“视频转文字”管线
+    this.handleVideoToTextPipeline()
     this.handleModelEvents()
   }
 
@@ -307,6 +309,50 @@ class IpcEvent {
         return { success: false, error: e?.message || String(e) }
       }
     })
+  }
+
+  /**
+   * 聚合：视频→提取音频→Whisper转写，并通过事件推送细进度。
+   * 事件频道：'pipeline:progress' -> { phase: 'extract'|'upload'|'process'|'transcribe'|'done'|'error', percent?: number, message?: string }
+   */
+  handleVideoToTextPipeline() {
+    ipcMain.handle(
+      'pipeline:video-to-text',
+      async (event, inputVideoPath: string, options?: { outputDir?: string; whisper?: any }) => {
+        try {
+          const webContents = event.sender
+          const emit = (payload: any) => webContents.send('pipeline:progress', payload)
+
+          // 1) 提取音频（细进度）
+          emit({ phase: 'extract', percent: 0 })
+          let lastPercent = 0
+          const audioPath = await ffmpegService.extractAudio(inputVideoPath, undefined, {
+            onProgress: (p) => {
+              // 防抖：只在变化时发送
+              if (typeof p === 'number' && p !== lastPercent) {
+                lastPercent = p
+                emit({ phase: 'extract', percent: Math.max(0, Math.min(100, p)) })
+              }
+            }
+          })
+          emit({ phase: 'extract', percent: 100 })
+
+          // 2) Whisper 转写
+          emit({ phase: 'transcribe', percent: 0 })
+          const res = await whisperServer.transcribe(audioPath, {
+            ...(options?.whisper || {}),
+            outputDir: options?.outputDir
+          })
+          emit({ phase: 'transcribe', percent: 100 })
+          emit({ phase: 'done' })
+          return { success: true, audioPath, output: res.output }
+        } catch (e: any) {
+          const msg = e?.message || String(e)
+          event.sender.send('pipeline:progress', { phase: 'error', message: msg })
+          return { success: false, error: msg }
+        }
+      }
+    )
   }
 
 
