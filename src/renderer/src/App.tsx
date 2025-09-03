@@ -1,11 +1,12 @@
 import Versions from './components/Versions'
 import FFmpegDemo from './components/FFmpegDemo'
 import electronLogo from './assets/electron.svg'
+import bridge from './utils/bridge'
 
 function App(): React.JSX.Element {
   const ipcHandle = (): void => {
     console.log('wwww')
-    window.electron.openFile()
+    bridge.openFile()
   }
 
   return (

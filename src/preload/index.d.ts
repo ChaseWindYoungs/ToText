@@ -12,13 +12,14 @@ declare global {
       extractThumbnail: (inputPath: string, outputPath: string, time?: string) => Promise<{ success: boolean; message?: string; error?: string }>
       trimVideo: (inputPath: string, outputPath: string, startTime: string, duration: string) => Promise<{ success: boolean; message?: string; error?: string }>
       extractAudio: (inputPath: string, outputPath?: string) => Promise<{ success: boolean; audioPath?: string; message?: string; error?: string }>
-      isReady: () => boolean
+      isReady: () => Promise<boolean>
     }
     // 添加文件选择器API
     fileSystem: {
       selectFile: (options?: { filters?: { name: string; extensions: string[] }[] }) => Promise<string | null>
       selectDirectory: () => Promise<string | null>
       getFileInfo: (filePath: string) => Promise<{ size: number; type: string; lastModified: number } | null>
+      readFile: (filePath: string) => Promise<string | ArrayBuffer | null>
     }
     whisper: {
       start: (opts?: { model?: string; threads?: number; port?: number }) => Promise<{ success: boolean; ready?: boolean; error?: string }>

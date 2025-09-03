@@ -37,6 +37,12 @@ class IpcEvent {
 
   // 原有的文件打开方法
   handleOpenFile() {
+    /**
+     * 选择并打开本地文件（系统对话框）
+     *
+     * 通道: 'open-file'
+     * @returns {Promise<Electron.OpenDialogReturnValue>} 系统对话框返回结果
+     */
     ipcMain.handle('open-file', async () => {
       const result = await dialog.showOpenDialog({
         properties: ['openFile'],
@@ -60,40 +66,18 @@ class IpcEvent {
   
   /**
    * FFmpeg相关IPC处理
-   *
-   * @event ffmpeg:convert-video
-   * @param {string} inputPath Input file path.
-   * @param {string} outputPath Output file path.
-   * @param {Object} options Options for converting.
-   * @returns {Promise<Object>} { success: boolean, message: string }
-   *
-   * @event ffmpeg:get-video-info
-   * @param {string} inputPath Input file path.
-   * @returns {Promise<Object>} { success: boolean, info: Object }
-   *
-   * @event ffmpeg:extract-thumbnail
-   * @param {string} inputPath Input file path.
-   * @param {string} outputPath Output file path.
-   * @param {string} time Timestamp of the thumbnail to extract (HH:MM:SS).
-   * @returns {Promise<Object>} { success: boolean, message: string }
-   *
-   * @event ffmpeg:trim-video
-   * @param {string} inputPath Input file path.
-   * @param {string} outputPath Output file path.
-   * @param {string} startTime Start time of the video to trim (HH:MM:SS).
-   * @param {string} duration Duration of the video to trim (HH:MM:SS).
-   * @returns {Promise<Object>} { success: boolean, message: string }
-   *
-   * @event ffmpeg:extract-audio
-   * @param {string} inputPath Input file path.
-   * @param {string} [outputPath] Output file path.
-   * @returns {Promise<Object>} { success: boolean, audioPath: string, message: string }
-   *
-   * @event ffmpeg:is-ready
-   * @returns {boolean} Whether FFmpeg is ready.
    */
   handleFFmpegEvents() {
     // 视频转换
+    /**
+     * 使用 FFmpeg 转换视频
+     *
+     * 通道: 'ffmpeg:convert-video'
+     * @param {string} inputPath 输入视频路径
+     * @param {string} outputPath 输出视频路径
+     * @param {Record<string, any>} options 转换参数（编码、比特率、分辨率等）
+     * @returns {Promise<{success:boolean, message?:string, error?:string}>}
+     */
     ipcMain.handle(
       'ffmpeg:convert-video',
       async (_event, inputPath: string, outputPath: string, options: any) => {
@@ -107,6 +91,13 @@ class IpcEvent {
     )
 
     // 获取视频信息
+    /**
+     * 读取视频基础信息（如分辨率、时长、编码等）
+     *
+     * 通道: 'ffmpeg:get-video-info'
+     * @param {string} inputPath 输入视频路径
+     * @returns {Promise<{success:boolean, info?:any, error?:string}>}
+     */
     ipcMain.handle('ffmpeg:get-video-info', async (_event, inputPath: string) => {
       try {
         const info = await ffmpegService.getVideoInfo(inputPath)
@@ -117,6 +108,15 @@ class IpcEvent {
     })
 
     // 提取缩略图
+    /**
+     * 从视频中提取指定时间点的缩略图
+     *
+     * 通道: 'ffmpeg:extract-thumbnail'
+     * @param {string} inputPath 输入视频路径
+     * @param {string} outputPath 输出图片路径（.jpg/.png）
+     * @param {string} time 时间点，格式 HH:MM:SS
+     * @returns {Promise<{success:boolean, message?:string, error?:string}>}
+     */
     ipcMain.handle(
       'ffmpeg:extract-thumbnail',
       async (_event, inputPath: string, outputPath: string, time: string) => {
@@ -130,6 +130,16 @@ class IpcEvent {
     )
 
     // 视频裁剪
+    /**
+     * 按起始时间与时长裁剪视频片段
+     *
+     * 通道: 'ffmpeg:trim-video'
+     * @param {string} inputPath 输入视频路径
+     * @param {string} outputPath 输出视频路径
+     * @param {string} startTime 开始时间 HH:MM:SS
+     * @param {string} duration 时长 HH:MM:SS
+     * @returns {Promise<{success:boolean, message?:string, error?:string}>}
+     */
     ipcMain.handle(
       'ffmpeg:trim-video',
       async (
@@ -149,6 +159,14 @@ class IpcEvent {
     )
 
     // 音频提取 - 使用文件路径而不是内存数据
+    /**
+     * 从输入媒体中提取音频轨并输出为音频文件
+     *
+     * 通道: 'ffmpeg:extract-audio'
+     * @param {string} inputPath 输入媒体路径
+     * @param {string} [outputPath] 可选的输出音频路径
+     * @returns {Promise<{success:boolean, audioPath?:string, message?:string, error?:string}>}
+     */
     ipcMain.handle(
       'ffmpeg:extract-audio',
       async (_event, inputPath: string, outputPath?: string) => {
@@ -166,6 +184,12 @@ class IpcEvent {
     )
 
     // 检查FFmpeg是否就绪
+    /**
+     * 检查 FFmpeg 服务是否就绪
+     *
+     * 通道: 'ffmpeg:is-ready'
+     * @returns {boolean} 是否就绪
+     */
     ipcMain.handle('ffmpeg:is-ready', () => {
       return ffmpegService.isReady()
     })
@@ -174,17 +198,15 @@ class IpcEvent {
   
   /**
    * 处理文件系统相关IPC事件
-   * @method
-   * @memberof IpcEvent
-   * @private
-   * @param {Electron.IpcMainEvent} event - IPC事件
-   * @property {string} event.file:select-file - 选择文件
-   * @property {Electron.OpenDialogOptions} event.file:select-file.options - 选择文件的选项
-   * @property {string} event.file:select-directory - 选择目录
-   * @property {string} event.file:get-info - 获取文件信息
-   * @property {string} event.file:read-file - 读取文件
    */
   handleFileSystemEvents() {
+    /**
+     * 打开系统对话框选择单个文件
+     *
+     * 通道: 'file:select-file'
+     * @param {Object} [options] 过滤选项
+     * @returns {Promise<string|null>} 选中文件路径或 null
+     */
     ipcMain.handle('file:select-file', async (_event, options) => {
       try {
         const result = await dialog.showOpenDialog({
@@ -205,6 +227,13 @@ class IpcEvent {
         return null
       }
     })
+
+    /**
+     * 打开系统对话框选择目录
+     *
+     * 通道: 'file:select-directory'
+     * @returns {Promise<string|null>} 选中目录路径或 null
+     */
     ipcMain.handle('file:select-directory', async () => {
       try {
         const result = await dialog.showOpenDialog({
@@ -219,6 +248,14 @@ class IpcEvent {
         return null
       }
     })
+
+    /**
+     * 获取文件的基本信息
+     *
+     * 通道: 'file:get-info'
+     * @param {string} filePath 文件路径
+     * @returns {Promise<{size:number,type:string,lastModified:number}|null>}
+     */
     ipcMain.handle('file:get-info', async (_event, filePath) => {
       try {
         const stats = fs.statSync(filePath)
@@ -232,6 +269,14 @@ class IpcEvent {
         return null
       }
     })
+
+    /**
+     * 以二进制方式读取文件并返回 ArrayBuffer
+     *
+     * 通道: 'file:read-file'
+     * @param {string} filePath 文件路径
+     * @returns {Promise<ArrayBuffer|null>} 文件内容或 null
+     */
     ipcMain.handle('file:read-file', async (_event, filePath) => {
       try {
         const buffer = fs.readFileSync(filePath)
@@ -246,31 +291,16 @@ class IpcEvent {
 
   /**
    * 处理Whisper IPC事件。
-   *
-   * @event whisper:start
-   * @param {Object} opts 启动Whisper服务器的选项。
-   * @param {string} [opts.model] Model file name (without extension).
-   * @param {number} [opts.threads] Number of threads to use.
-   * @param {number} [opts.port] Port number to use.
-   * @returns {Promise<Object>} { success: boolean, ready: boolean }
-   *
-   * @event whisper:stop
-   * @returns {Promise<Object>} { success: boolean }
-   *
-   * @event whisper:is-ready
-   * @returns {boolean} Whether the Whisper server is ready.
-   *
-   * @event whisper:transcribe
-   * @param {string} inputPath Input file path.
-   * @param {Object} [options] Options for transcribing.
-   * @returns {Promise<Object>} { success: boolean, ...transcriptionResult }
-   *
-   * @event whisper:restart
-   * @param {string} [modelFile] Model file name (without extension).
-   * @returns {Promise<Object>} { success: boolean, ready: boolean }
    */
   handleWhisperEvents() {
 
+    /**
+     * 启动 Whisper 本地服务
+     *
+     * 通道: 'whisper:start'
+     * @param {{model?:string, threads?:number, port?:number}} [opts] 启动参数
+     * @returns {Promise<{success:boolean, ready?:boolean, error?:string}>}
+     */
     ipcMain.handle(
       'whisper:start',
       async (_e, opts?: { model?: string; threads?: number; port?: number }) => {
@@ -282,6 +312,13 @@ class IpcEvent {
         }
       }
     )
+
+    /**
+     * 停止 Whisper 本地服务
+     *
+     * 通道: 'whisper:stop'
+     * @returns {Promise<{success:boolean, error?:string}>}
+     */
     ipcMain.handle('whisper:stop', async () => {
       try {
         await whisperServer.stop()
@@ -290,9 +327,25 @@ class IpcEvent {
         return { success: false, error: e?.message || String(e) }
       }
     })
+
+    /**
+     * 查询 Whisper 服务是否就绪
+     *
+     * 通道: 'whisper:is-ready'
+     * @returns {boolean}
+     */
     ipcMain.handle('whisper:is-ready', () => {
       return whisperServer.isReady()
     })
+
+    /**
+     * 通过 Whisper 转写指定音频/视频文件
+     *
+     * 通道: 'whisper:transcribe'
+     * @param {string} inputPath 输入媒体路径
+     * @param {Record<string, any>} [options] 转写参数（语言、格式、线程数等）
+     * @returns {Promise<{success:boolean, output?:string, error?:string}>}
+     */
     ipcMain.handle('whisper:transcribe', async (_e, inputPath: string, options?: any) => {
       try {
         const res = await whisperServer.transcribe(inputPath, options)
@@ -301,6 +354,14 @@ class IpcEvent {
         return { success: false, error: e?.message || String(e) }
       }
     })
+
+    /**
+     * 重启 Whisper 服务（可切换模型）
+     *
+     * 通道: 'whisper:restart'
+     * @param {string} [modelFile] 模型文件名
+     * @returns {Promise<{success:boolean, ready?:boolean, error?:string}>}
+     */
     ipcMain.handle('whisper:restart', async (_e, modelFile?: string) => {
       try {
         await whisperServer.restart(modelFile)
@@ -316,6 +377,14 @@ class IpcEvent {
    * 事件频道：'pipeline:progress' -> { phase: 'extract'|'upload'|'process'|'transcribe'|'done'|'error', percent?: number, message?: string }
    */
   handleVideoToTextPipeline() {
+    /**
+     * 一键处理：视频→提取音频→Whisper 转写
+     *
+     * 通道: 'pipeline:video-to-text'
+     * @param {string} inputVideoPath 输入视频路径
+     * @param {{outputDir?:string, whisper?:Record<string, any>}} [options] 选项
+     * @returns {Promise<{success:boolean, audioPath?:string, output?:string, error?:string}>}
+     */
     ipcMain.handle(
       'pipeline:video-to-text',
       async (event, inputVideoPath: string, options?: { outputDir?: string; whisper?: any }) => {
@@ -357,26 +426,32 @@ class IpcEvent {
 
 
   /**
-   * Handle model-related IPC events.
-   *
-   * @event models:list
-   * @returns {Promise<string[]>} List of model files.
-   *
-   * @event models:dir
-   * @returns {Promise<string>} Directory path for model files.
-   *
-   * @event models:remove
-   * @param {string} name Model file name (without extension).
-   * @returns {Promise<Object>} { success: boolean }
-   *
-   * @event models:download
-   * @param {string} url URL of the model file to download.
-   * @param {string} [fileName] Optional file name to use for the downloaded file.
-   * @returns {Promise<Object>} { success: boolean, ...downloadResult }
+   * 处理模型相关的进程间通信事件.
    */
   handleModelEvents() {
+    /**
+     * 获取可用模型列表
+     *
+     * 通道: 'models:list'
+     * @returns {Promise<Array<{name:string,size:number}>>}
+     */
     ipcMain.handle('models:list', () => modelsManager.list())
+
+    /**
+     * 获取模型存储目录
+     *
+     * 通道: 'models:dir'
+     * @returns {Promise<string>} 目录绝对路径
+     */
     ipcMain.handle('models:dir', () => modelsManager.getDir())
+
+    /**
+     * 删除指定模型
+     *
+     * 通道: 'models:remove'
+     * @param {string} name 模型文件名（不含扩展名）
+     * @returns {Promise<{success:boolean, error?:string}>}
+     */
     ipcMain.handle('models:remove', (_e, name: string) => {
       try {
         modelsManager.remove(name)
@@ -385,6 +460,15 @@ class IpcEvent {
         return { success: false, error: e?.message || String(e) }
       }
     })
+
+    /**
+     * 下载并保存模型文件
+     *
+     * 通道: 'models:download'
+     * @param {string} url 模型下载 URL
+     * @param {string} [fileName] 可选保存文件名
+     * @returns {Promise<{success:boolean, path?:string, error?:string}>}
+     */
     ipcMain.handle('models:download', async (_e, url: string, fileName?: string) => {
       try {
         const res = await modelsManager.download(url, fileName)

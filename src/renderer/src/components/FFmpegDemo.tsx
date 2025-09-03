@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import bridge from '../utils/bridge'
 
 interface FFmpegDemoProps {}
 
@@ -18,8 +19,8 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
   React.useEffect(() => {
     const checkFFmpeg = async () => {
       try {
-        const ready = await window.ffmpeg.isReady()
-        setFfmpegReady(ready)
+        const ready = await bridge.isFfmpegReady()
+        setFfmpegReady(Boolean(ready))
       } catch (error) {
         console.error('FFmpeg not available:', error)
         setFfmpegReady(false)
@@ -30,7 +31,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
 
   const handleFileSelect = async () => {
     try {
-      const filePath = await window.fileSystem.selectFile({
+      const filePath = await bridge.selectFile({
         filters: [
           { name: '视频文件', extensions: ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv'] },
           { name: '音频文件', extensions: ['mp3', 'wav', 'aac', 'flac', 'ogg'] },
@@ -44,7 +45,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
         setOutputPath(fileName.replace(/\.[^/.]+$/, '_converted.mp4'))
 
         // 获取文件信息
-        const fileInfo = await window.fileSystem.getFileInfo(filePath)
+        const fileInfo = await bridge.getFileInfo(filePath)
         if (fileInfo) {
           const sizeMB = (fileInfo.size / (1024 * 1024)).toFixed(2)
           setMessage(`已选择文件: ${fileName} (${sizeMB} MB)`)
@@ -66,7 +67,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     setMessage('正在转换视频...')
 
     try {
-      const result = await window.ffmpeg.convertVideo(inputFilePath, outputPath, {
+      const result = await bridge.convertVideo(inputFilePath, outputPath, {
         format: 'mp4',
         codec: 'libx264',
         bitrate: '1000k',
@@ -98,7 +99,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     try {
       const thumbnailPath = inputFilePath.replace(/\.[^/.]+$/, '_thumbnail.jpg')
 
-      const result = await window.ffmpeg.extractThumbnail(inputFilePath, thumbnailPath, '00:00:01')
+      const result = await bridge.extractThumbnail(inputFilePath, thumbnailPath, '00:00:01')
 
       if (result.success) {
         setMessage(result.message || '缩略图提取成功！')
@@ -123,7 +124,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     setMessage('正在获取视频信息...')
 
     try {
-      const result = await window.ffmpeg.getVideoInfo(inputFilePath)
+      const result = await bridge.getVideoInfo(inputFilePath)
 
       if (result.success) {
         setMessage(`视频信息获取成功: ${JSON.stringify(result.info)}`)
@@ -148,7 +149,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     setMessage('正在提取音频...')
 
     try {
-      const result = await window.ffmpeg.extractAudio(inputFilePath)
+      const result = await bridge.extractAudio(inputFilePath)
 
       if (result.success && result.audioPath) {
         setExtractedAudioPath(result.audioPath)
@@ -177,7 +178,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     setTranscriptPath('')
 
     // 订阅进度
-    const stop = window.pipeline.onProgress(({ phase, percent, message }) => {
+    const stop = bridge.pipelineOnProgress(({ phase, percent, message }) => {
       if (phase === 'extract' || phase === 'transcribe') {
         setPipelinePhase(phase)
         if (typeof percent === 'number') setPipelinePercent(percent)
@@ -191,7 +192,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     })
 
     try {
-      const { success, audioPath, output, error } = await window.pipeline.startVideoToText(
+      const { success, audioPath, output, error } = await bridge.pipelineStartVideoToText(
         inputFilePath,
         {
           // 不传也会默认写入桌面 totext
@@ -279,10 +280,10 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
           onClick={async () => {
             try {
               // 启动本地服务（如果已经启动会立即返回）
-              const models = await window.models.list()
+              const models = await bridge.listModels()
               const useModel =
                 models.find((m) => m.name.includes('small'))?.name || 'ggml-tiny-q5_1.bin'
-              const res = await window.whisper.start({ model: useModel, threads: 4, port: 8089 })
+              const res = await bridge.whisperStart({ model: useModel, threads: 4, port: 8089 })
               if (!res.success) {
                 alert(`启动失败: ${res.error}`)
                 return
@@ -307,12 +308,12 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
           }}
           onClick={async () => {
             if (!inputFilePath) return alert('请先选择文件')
-            const ready = await window.whisper.isReady()
+            const ready = await bridge.whisperIsReady()
             if (!ready) {
               // 服务未就绪也可以直接 transcribe（会回退到 CLI）
               console.warn('whisper 服务未就绪，使用 CLI 回退')
             }
-            const { success, output, error } = await window.whisper.transcribe(inputFilePath, {
+            const { success, output, error } = await bridge.whisperTranscribe(inputFilePath, {
               language: 'zh',
               format: 'srt',
               translate: false
