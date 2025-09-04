@@ -182,6 +182,25 @@ class Bridge {
     return unsubscribe
   }
 
+  // file helpers
+  async readFileAsText(filePath: string): Promise<string | null> {
+    try {
+      const content = await window.fileSystem.readFile(filePath)
+      if (typeof content === 'string') return content
+      if (content instanceof ArrayBuffer) {
+        try {
+          return new TextDecoder('utf-8').decode(content)
+        } catch {
+          return null
+        }
+      }
+      return null
+    } catch (e) {
+      console.error('[bridge.readFileAsText] error:', e)
+      return null
+    }
+  }
+
   // models
   async listModels() {
     try {

@@ -6,8 +6,12 @@ import IpcEvent from '../ipcMain/index'
 import { ffmpegService } from './ffmpeg'
 import fs from 'fs'
 import path from 'path'
+import https from 'https'
+import express from 'express'
+import selfsigned from 'selfsigned'
 
 let _IpcEvent: any
+let serverCloser: undefined | (() => void)
 
 // 注册自定义协议
 function registerCustomProtocol(): void {
@@ -39,8 +43,28 @@ function registerCustomProtocol(): void {
   
   console.log('自定义协议注册完成')
 }
+async function startLocalHttpsServer(): Promise<{ url: string, close: () => void }> {
+  const attrs = [{ name: 'commonName', value: 'localhost' }]
+  const pems = selfsigned.generate(attrs, { days: 365, keySize: 2048 })
 
-function createWindow(): void {
+  const appSrv = express()
+  const staticDir = path.join(__dirname, '../renderer')
+
+  appSrv.use(express.static(staticDir))
+  appSrv.get('*', (_, res) => res.sendFile(path.join(staticDir, 'index.html')))
+
+  const server = https.createServer({ key: pems.private, cert: pems.cert }, appSrv)
+
+  const port = 8443
+  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve))
+
+  return {
+    url: `https://127.0.0.1:${port}/index.html`,
+    close: () => server.close()
+  }
+}
+
+async function createWindow(): Promise<void> {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -64,7 +88,7 @@ function createWindow(): void {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: myapp:; media-src 'self' data: blob: myapp:; img-src 'self' data: blob: myapp:; script-src 'self' 'unsafe-inline' 'unsafe-eval';"
+          "default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob: myapp:; media-src 'self' https: data: blob: myapp:; img-src 'self' https: data: blob: myapp:; script-src 'self' https: 'unsafe-inline' 'unsafe-eval';"
         ]
       }
     })
@@ -74,20 +98,27 @@ function createWindow(): void {
     mainWindow.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
+  // 放宽仅限 localhost/127.0.0.1 的证书校验
+  mainWindow.webContents.session.setCertificateVerifyProc((request, callback) => {
+    if (request.hostname === 'localhost' || request.hostname === '127.0.0.1') callback(0)
+    else callback(-3)
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
+  // 开发环境：由 electron-vite 提供的 https dev server
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    await mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    // 生产环境：本地 https 静态服务
+    const { url, close } = await startLocalHttpsServer()
+    serverCloser = close
+    await mainWindow.loadURL(url)
   }
-  
+
   _IpcEvent = new IpcEvent(mainWindow)
+
+  mainWindow.on('closed', () => {
+    if (serverCloser) serverCloser()
+  })
 }
 
 // This method will be called when Electron has finished
@@ -102,6 +133,19 @@ app.whenReady().then(async () => {
   
   // 等待一小段时间确保协议注册完成
   await new Promise(resolve => setTimeout(resolve, 100))
+
+  // 放宽默认会话对本地自签名证书的校验
+  app.whenReady().then(() => {
+    const ses = (BrowserWindow.getFocusedWindow()?.webContents.session) || null
+    if (!ses) {
+      // 如果此时没有窗口会话，使用默认会话
+      // 仅对 localhost/127.0.0.1 放行
+      require('electron').session.defaultSession.setCertificateVerifyProc((request, callback) => {
+        if (request.hostname === 'localhost' || request.hostname === '127.0.0.1') callback(0)
+        else callback(-3)
+      })
+    }
+  })
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -137,3 +181,4 @@ app.on('window-all-closed', () => {
 // https://v.douyin.com/KJQhSTYHwxc/
 // https://v.douyin.com/aAMM17vrQj8/
 // https://v.douyin.com/6JXt7JiqYm0/
+
