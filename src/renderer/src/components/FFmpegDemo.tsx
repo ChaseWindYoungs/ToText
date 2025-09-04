@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import bridge from '../utils/bridge'
 
 interface FFmpegDemoProps {}
@@ -14,6 +14,7 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
   const [pipelinePercent, setPipelinePercent] = useState<number>(0)
   const [transcriptPath, setTranscriptPath] = useState<string>('')
   // 移除未使用的引用
+  const transcribeTimerRef = useRef<number | null>(null)
 
   // 检查FFmpeg是否就绪
   React.useEffect(() => {
@@ -172,26 +173,77 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     }
 
     setIsProcessing(true)
-    setMessage('正在执行：提取音频并转写...')
+    setMessage('正在执行：检查并启动 Whisper 服务...')
     setPipelinePhase('')
     setPipelinePercent(0)
     setTranscriptPath('')
 
     // 订阅进度
     const stop = bridge.pipelineOnProgress(({ phase, percent, message }) => {
-      if (phase === 'extract' || phase === 'transcribe') {
-        setPipelinePhase(phase)
+      if (phase === 'extract') {
+        // 提取音频阶段：使用真实进度
+        setPipelinePhase('extract')
+        if (transcribeTimerRef.current) {
+          window.clearInterval(transcribeTimerRef.current)
+          transcribeTimerRef.current = null
+        }
         if (typeof percent === 'number') setPipelinePercent(percent)
+      } else if (phase === 'transcribe') {
+        // 转写阶段：如果后端没有细粒度进度，前端做平滑占位
+        setPipelinePhase('transcribe')
+        if (typeof percent === 'number' && percent > 0 && percent <= 100) {
+          setPipelinePercent(percent)
+        }
+        if (!transcribeTimerRef.current) {
+          transcribeTimerRef.current = window.setInterval(() => {
+            setPipelinePercent((p) => {
+              // 缓慢推进到 95%，等待后端完成时再跳到 100%
+              if (p >= 95) return p
+              return p + 1
+            })
+          }, 400)
+        }
       } else if (phase === 'done') {
+        if (transcribeTimerRef.current) {
+          window.clearInterval(transcribeTimerRef.current)
+          transcribeTimerRef.current = null
+        }
         setPipelinePhase('done')
         setPipelinePercent(100)
       } else if (phase === 'error') {
+        if (transcribeTimerRef.current) {
+          window.clearInterval(transcribeTimerRef.current)
+          transcribeTimerRef.current = null
+        }
         setPipelinePhase('error')
         setMessage(message || '处理出错')
       }
     })
 
     try {
+      // 1) 确保 Whisper 服务已就绪；未就绪则尝试启动
+      const ready = await bridge.whisperIsReady()
+      if (!ready) {
+        try {
+          const models = await bridge.listModels()
+          const useModel = models.find((m) => m.name.includes('small'))?.name || 'ggml-tiny-q5_1.bin'
+          const startRes = await bridge.whisperStart({ model: useModel, threads: 4, port: 8089 })
+          if (!startRes.success) {
+            setMessage(`Whisper 启动失败：${startRes.error}`)
+            setIsProcessing(false)
+            stop()
+            return
+          }
+        } catch (e: any) {
+          setMessage(`Whisper 启动出错：${e?.message || String(e)}`)
+          setIsProcessing(false)
+          stop()
+          return
+        }
+      }
+
+      // 2) 进入管线：提取音频并转写
+      setMessage('正在执行：提取音频并转写...')
       const { success, audioPath, output, error } = await bridge.pipelineStartVideoToText(
         inputFilePath,
         {
@@ -211,6 +263,10 @@ const FFmpegDemo: React.FC<FFmpegDemoProps> = () => {
     } finally {
       stop()
       setIsProcessing(false)
+      if (transcribeTimerRef.current) {
+        window.clearInterval(transcribeTimerRef.current)
+        transcribeTimerRef.current = null
+      }
     }
   }
 
